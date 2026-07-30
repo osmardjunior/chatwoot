@@ -1,0 +1,84 @@
+version: '3'
+
+# Platform-neutral production stack adapted for Dokploy
+# TLS + reverse proxy are handled externally by Dokploy's Traefik.
+# We remove host port bindings and rely on Traefik for external routing.
+
+services:
+  base: &base
+    image: ${CHATWOOT_IMAGE:-chatwoot/chatwoot:latest}
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
+      - INSTALLATION_ENV=docker
+      - FRONTEND_URL=${FRONTEND_URL}
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+      
+      # Database connection
+      - POSTGRES_DATABASE=${DB_NAME:-chatwoot}
+      - POSTGRES_HOST=${DB_HOST:-postgres}
+      - POSTGRES_USERNAME=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      
+      # Redis connection
+      - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379/0
+      
+      # Object Storage / Uploads
+      - ACTIVE_STORAGE_SERVICE=${ACTIVE_STORAGE_SERVICE:-local}
+    volumes:
+      - storage_data:/app/storage
+
+  rails:
+    <<: *base
+    depends_on:
+      - postgres
+      - redis
+    # Removed port binding: Traefik will route traffic directly to the container on port 3000
+    entrypoint: docker/entrypoints/rails.sh
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  sidekiq:
+    <<: *base
+    depends_on:
+      - postgres
+      - redis
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+    restart: always
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: always
+    environment:
+      - POSTGRES_DB=${DB_NAME:-chatwoot}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    restart: always
+    command: ["sh", "-c", "redis-server --requirepass \"$REDIS_PASSWORD\""]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  storage_data:
+  postgres_data:
+  redis_data:
