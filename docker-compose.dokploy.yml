@@ -19,8 +19,8 @@ x-base: &base
     - POSTGRES_USERNAME=${DB_USER:-postgres}
     - POSTGRES_PASSWORD=${DB_PASSWORD}
     
-    # Redis connection
-    - REDIS_URL=redis://default:${REDIS_PASSWORD}@redis:6379/0
+    # Redis connection (using host address to avoid URI encoding issues with special characters)
+    - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
     
     # Object Storage / Uploads
     - ACTIVE_STORAGE_SERVICE=${ACTIVE_STORAGE_SERVICE:-local}
