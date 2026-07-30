@@ -52,6 +52,8 @@ class GlobalConfig
 
     def db_fallback(config_key)
       InstallationConfig.find_by(name: config_key)&.value
+    rescue ActiveRecord::NoDatabaseError, ActiveRecord::StatementInvalid
+      nil
     end
   end
 end
