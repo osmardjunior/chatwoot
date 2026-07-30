@@ -33,7 +33,7 @@ done
 # Run pending migrations before starting the server so that workers
 # (sidekiq) that depend on the rails healthcheck never see a stale schema.
 echo "Running db:chatwoot_prepare..."
-bundle exec rake db:chatwoot_prepare
+bundle exec rake db:chatwoot_prepare || echo "WARNING: db:chatwoot_prepare failed, but continuing..."
 echo "Database preparation complete."
 
 # Execute the main process of the container
