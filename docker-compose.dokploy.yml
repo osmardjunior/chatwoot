@@ -32,9 +32,10 @@ services:
   rails:
     <<: *base
     depends_on:
-      - postgres
-      - redis
-    # Removed port binding: Traefik will route traffic directly to the container on port 3000
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     entrypoint: docker/entrypoints/rails.sh
     command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
     restart: always
@@ -42,7 +43,7 @@ services:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 20
       start_period: 300s
 
   sidekiq:
